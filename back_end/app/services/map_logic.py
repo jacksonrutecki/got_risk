@@ -1,14 +1,7 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
 import os
 
-app = Flask(__name__)
-CORS(app)
 
-
-@app.route("/list-files", methods=["GET"])
-def list_files():
-    directory = request.args.get("directory")
+def get_files_in_dir(directory):
     file_data = []
 
     for filename in os.listdir(directory):
@@ -18,8 +11,4 @@ def list_files():
                 content = f.read().strip()
                 file_data.append({"id": filename, "d": content})
 
-    return jsonify(file_data)
-
-
-if __name__ == "__main__":
-    app.run()
+    return file_data

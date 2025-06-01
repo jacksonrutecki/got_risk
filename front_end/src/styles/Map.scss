@@ -1,0 +1,6 @@
+@use "./main_styles.scss";
+
+.test:hover path {
+    stroke: #007bff;
+    stroke-width: 2;
+}
