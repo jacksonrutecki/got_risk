@@ -1,0 +1,8 @@
+{
+    "stoney_shore": {
+        "is_port": "FALSE",
+        "is_castle": "FALSE",
+        "neighbors": ["barrowlands", "wolfswood", "bear_island"],
+        "region": "THE NORTH"
+    }
+}

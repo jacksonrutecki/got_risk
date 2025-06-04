@@ -30,7 +30,9 @@ const Map = ({ socket }: { socket: Socket }) => {
   // when a layer is clicked, print out its name to the console (temporary function)
   const handleGroupClick = (event: React.MouseEvent) => {
     console.log(event.currentTarget.id.replace(".txt", ""));
-    socket.emit("button_click");
+    socket.emit("button_click", {
+      territory: event.currentTarget.id.replace(".txt", ""),
+    });
   };
 
   // the image width and height as denoted by the .svg itself -

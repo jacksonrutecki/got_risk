@@ -1,27 +1,18 @@
 from flask import request
 from flask_socketio import emit, join_room
+from app.services import game
 
 rooms = {}  # room id -> sid
 users = {}  # sid -> {username, room ID, points}
+games = {}  # room id -> current game
 
 
 def register_socket_events(socketio):
     @socketio.on("connect")
     def handle_connect():
-        # print(f"user connected: {request.sid}")
         users[request.sid] = {"username": None, "roomID": None, "points": 0}
 
         emit("server_response", {"message": f"user connected: {request.sid}"})
-
-    @socketio.on("button_click")
-    def handle_button_click():
-        sid = request.sid
-
-        print(f"button clicked by {sid}")
-        users[sid]["points"] += 1
-
-        emit("player_data", [
-             user for user in users.values() if user["roomID"] == users[sid]["roomID"]], room=users[sid]["roomID"])
 
     @socketio.on("join-room")
     def handle_join_room(data):
@@ -46,6 +37,31 @@ def register_socket_events(socketio):
              for key in rooms[roomID] if key in users], room=roomID)
         emit("player_data", [
              user for user in users.values() if user["roomID"] == users[sid]["roomID"]], room=users[sid]["roomID"])
+
+    @socketio.on("start-game")
+    def handle_start_game(data):
+        sid = request.sid
+        roomID = users[sid]["roomID"]
+
+        games[roomID] = game(roomID, users.keys())
+
+    @socketio.on("button_click")
+    def handle_button_click(data):
+        sid = request.sid
+        cur_game = games.get(users[sid]["roomID"])
+        cur_game.handle_move(sid)
+
+        print(f"{data["territory"]} clicked by {sid}")
+        users[sid]["points"] += 1
+
+        emit("player_data", [
+             user for user in users.values() if user["roomID"] == users[sid]["roomID"]], room=users[sid]["roomID"])
+
+    @socketio.on("next_move")
+    def handle_next_move(data):
+        sid = request.sid
+        cur_game = games.get(users[sid]["roomID"])
+        cur_game.next_move()
 
     @socketio.on("disconnect")
     def handle_disconnect(reason):
