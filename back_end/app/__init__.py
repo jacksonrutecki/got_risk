@@ -1,5 +1,5 @@
-from app.socket_events.socket_events import register_socket_events
 from app.routes.map_routes import map_bp
+from app.socket_events.socket_events import register_socket_events
 from flask import Flask
 from flask_cors import CORS
 from flask_socketio import SocketIO
