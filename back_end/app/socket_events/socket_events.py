@@ -3,16 +3,26 @@ from flask_socketio import emit, join_room
 from app.services.game import Game
 
 rooms = {}  # room id -> sid
-users = {}  # sid -> {username, room ID, points}
+users = {}  # sid -> {username, room ID, points, color}
 games = {}  # room id -> current game
+
+COLORS = ["#E74C3C",
+          "#3498DB",
+          "#2ECC71",
+          "#E67E22",
+          "#9B59B6",
+          "#F1C40F",
+          "#1ABC9C",
+          "#E91E63"]
 
 
 def register_socket_events(socketio):
     @socketio.on("connect")
     def handle_connect():
-        users[request.sid] = {"username": None, "roomID": None, "points": 0}
-
-        emit("server_response", {"message": f"user connected: {request.sid}"})
+        sid = request.sid
+        print(f"user disconnected: {sid}")
+        users[sid] = {"username": None,
+                      "roomID": None, "points": 0, "color": None}
 
     @socketio.on("join-room")
     def handle_join_room(data):
@@ -32,9 +42,9 @@ def register_socket_events(socketio):
         # update username and room id of the user accordingly
         users[sid]["roomID"] = roomID
         users[sid]["username"] = username
+        users[sid]["color"] = COLORS[len(rooms[roomID]) - 2]
 
-        emit("room-users", [users[key]
-             for key in rooms[roomID] if key in users], room=roomID)
+        print(users)
         emit("player_data", [
              user for user in users.values() if user["roomID"] == users[sid]["roomID"]], room=users[sid]["roomID"])
 
@@ -49,15 +59,35 @@ def register_socket_events(socketio):
     def handle_button_click(data):
         sid = request.sid
         cur_game = games.get(users[sid]["roomID"])
-        cur_game.handle_move(sid, data["territory"])
+        cur_player = cur_game.get_current_player()
 
-        print(f"{data["territory"]} clicked by {sid}")
-        users[sid]["points"] += 1
+        if sid == cur_player:
+            cur_game.handle_move(sid, data["territory"])
 
-        handle_get_armies(data)
+        emit("armies_updated", True)
+        print(cur_game.get_ter_to())
 
-        emit("player_data", [
-             user for user in users.values() if user["roomID"] == users[sid]["roomID"]], room=users[sid]["roomID"])
+    @socketio.on("execute_move")
+    def handle_execute_move():
+        sid = request.sid
+        cur_game = games.get(users[sid]["roomID"])
+        cur_player = cur_game.get_current_player()
+
+        if sid == cur_player:
+            cur_game.execute_move()
+
+        emit("armies_updated", True)
+
+    @socketio.on("reset_phase")
+    def handle_reset_phase():
+        sid = request.sid
+        cur_game = games.get(users[sid]["roomID"])
+        cur_player = cur_game.get_current_player()
+
+        if sid == cur_player:
+            cur_game.reset_phase()
+
+        emit("armies_updated", True)
 
     @socketio.on("get_current_phase")
     def handle_current_phase():
@@ -83,10 +113,23 @@ def register_socket_events(socketio):
 
         territory = data["territory"]
 
-        get_army_array = cur_game.get_num_armies_on_territory(territory)
+        get_armies = cur_game.get_num_armies_on_territory(territory)
+        get_color = users.get(
+            cur_game.__get_player_on_territory__(territory))["color"]
 
-        print(territory, " has ", get_army_array, " armies")
-        emit("num_armies", get_army_array)
+        is_ter_from = territory in cur_game.get_ter_from()
+        is_ter_to = territory in cur_game.get_ter_to()
+
+        emit("num_armies", {"num_armies": get_armies, "color": get_color,
+             "is_ter_from": is_ter_from, "is_ter_to": is_ter_to})
+
+    @socketio.on("get_terrs")
+    def handle_get_terrs(data):
+        sid = request.sid
+        cur_game = games.get(users[sid]["roomID"])
+
+        emit("ter_from", cur_game.get_ter_from())
+        emit("ter_to", cur_game.get_ter_to())
 
     @socketio.on("next_move")
     def handle_next_move():

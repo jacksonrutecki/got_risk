@@ -8,7 +8,73 @@
     "barrowlands": {
         "is_port": "FALSE",
         "is_castle": "TRUE",
-        "neighbors": ["stoney_shore", "wolfswood", "winterfell", "white harbor", "the neck"],
+        "neighbors": ["stoney_shore", "wolfswood", "winterfell", "white_harbor", "the neck"],
+        "region": "THE NORTH"
+    },
+    "wolfswood": {
+        "is_port": "TRUE",
+        "is_castle": "FALSE",
+        "neighbors": ["stoney_shore", "bear_island", "barrowlands", "winterfell", "cape_kraken", "pyke", "harlaw", "casterly_rock", "oldtown", "the_trident"],
+        "region": "THE NORTH"
+    },
+    "bear_island": {
+        "is_port": "FALSE",
+        "is_castle": "FALSE",
+        "neighbors": ["stoney_shore", "wolfswood", "winterfell"],
+        "region":"THE NORTH"
+    },
+    "cape_kraken": {
+        "is_port": "TRUE",
+        "is_castle": "FALSE",
+        "neighbors": ["the_neck", "wolfswood", "pyke", "harlaw", "casterly_rock", "oldtown", "the_trident"],
+        "region": "THE NORTH"
+    },
+    "the_neck": {
+        "is_port": "FALSE",
+        "is_castle": "FALSE",
+        "neighbors": ["white_harbor", "barrowlands", "cape_kraken", "the_twins", "mountains_of_the_moon"],
+        "region": "THE NORTH"
+    },
+    "white_harbor": {
+        "is_port": "TRUE",
+        "is_castle": "FALSE",
+        "neighbors": ["the_neck", "barrowlands", "winterfell", "widows_watch", "gulltown", "kings_landing", "dragonstone", "storms_end", "sunspear"],
+        "region": "THE NORTH"
+    },
+    "winterfell": {
+        "is_port": "FALSE",
+        "is_castle": "TRUE",
+        "neighbors": ["barrowlands", "wolfswood", "bear_island", "the_gift", "the_dreadfort", "widows_watch", "white_harbor"],
+        "region": "THE NORTH"
+    },
+    "the_gift": {
+        "is_port": "FALSE",
+        "is_castle": "FALSE",
+        "neighbors": ["winterfell", "the_dreadfort", "karhold", "skagos"],
+        "region": "THE NORTH"
+    },
+    "the_dreadfort": {
+        "is_port": "FALSE",
+        "is_castle": "TRUE",
+        "neighbors": ["winterfell", "widows_watch", "karhold", "the_gift"],
+        "region": "THE NORTH"
+    },
+    "kashold": {
+        "is_port": "FALSE",
+        "is_castle": "FALSE",
+        "neighbors": ["skagos", "the_gift", "the_dreadfort"],
+        "region": "THE NORTH"
+    },
+    "widows_watch": {
+        "is_port": "TRUE",
+        "is_castle": "FALSE",
+        "neighbors": ["white_harbor", "winterfell", "the_dreadfort", "gulltown", "kings_landing", "dragonstone", "storms_end", "sunspear"],
+        "region": "THE NORTH"
+    },
+    "skagos": {
+        "is_port": "FALSE",
+        "is_castle": "FALSE",
+        "neighbors": ["the_gift", "kashold"],
         "region": "THE NORTH"
     }
 }

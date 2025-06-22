@@ -14,6 +14,10 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
 
   const username = location.state?.username || null;
 
+  const handleExecuteMove = () => {
+    socket.emit("execute_move");
+  };
+
   useEffect(() => {
     socket.emit("join-room", { roomID, username });
     socket.emit("start-game");
@@ -29,31 +33,52 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
     return () => {
       socket.off("current_phase", handlePhase);
       socket.off("current_turn", handleTurn);
-      socket.off("room-users");
     };
   }, []);
 
   return (
-    <>
+    <div style={{ display: "flex", width: "100%" }}>
+      {/* First column */}
       <div
         style={{
-          justifyContent: "left",
-          height: "0px",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-start",
+          height: "100%",
         }}
       >
-        <HomeButton />
-        <h2>Room {roomID}</h2>
-        {curPhase}
-        <br />
-        {curTurn}
-      </div>
-      <div style={{ position: "absolute", left: 0, top: "50%" }}>
-        <ul>
+        {/* Home button */}
+        <div style={{ paddingLeft: "10px", marginBottom: "20px" }}>
+          <HomeButton />
+        </div>
+
+        {/* Room Info */}
+        <div style={{ paddingLeft: "20px", marginBottom: "20px" }}>
+          <h2>Room {roomID}</h2>
+          {curPhase}
+          <br />
+          {curTurn}
+        </div>
+
+        {/* Player Cards */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+          }}
+        >
           <PlayerCard socket={socket} />
-        </ul>
+        </div>
       </div>
+
+      {/* Second column */}
       <div
         style={{
+          flex: 1,
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
@@ -61,7 +86,21 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
       >
         <Map socket={socket} />
       </div>
-    </>
+
+      {/* Third column */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <button className="base-button" onClick={handleExecuteMove}>
+          Execute Move
+        </button>
+      </div>
+    </div>
   );
 };
 

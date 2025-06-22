@@ -3,6 +3,7 @@ import { POSITION_NONE, ReactSVGPanZoom, TOOL_AUTO } from "react-svg-pan-zoom";
 import type { Value, Tool } from "react-svg-pan-zoom";
 import { Socket } from "socket.io-client";
 import "../styles/Map.scss";
+import type { TerrInfo } from "../types/TerrInfo";
 
 const Map = ({ socket }: { socket: Socket }) => {
   // using the list of files, get the layer paths inside of them
@@ -14,7 +15,12 @@ const Map = ({ socket }: { socket: Socket }) => {
   const [armyPositions, setArmyPositions] = useState<
     Record<string, { x: number; y: number }>
   >({});
-  const [armyCounts, setArmyCounts] = useState<Record<string, number>>({});
+  const [armyCounts, setArmyCounts] = useState<Record<string, TerrInfo>>({});
+  const [armyUpdateTrigger, setArmyUpdateTrigger] = useState(0);
+
+  const refreshArmies = () => {
+    setArmyUpdateTrigger((prev) => prev + 1);
+  };
 
   const pathRefs = useRef<Record<string, SVGPathElement | null>>({});
 
@@ -34,13 +40,24 @@ const Map = ({ socket }: { socket: Socket }) => {
     return () => window.removeEventListener("resize", handleResize);
   });
 
-  const getArmies = (territory: string): Promise<number> => {
+  useEffect(() => {
+    const handleUpdate = () => {
+      refreshArmies();
+    };
+
+    socket.on("armies_updated", handleUpdate);
+
+    return () => {
+      socket.off("armies_updated", handleUpdate);
+    };
+  });
+
+  const getArmies = (territory: string): Promise<TerrInfo> => {
     return new Promise((resolve) => {
       socket.emit("get_armies", { territory: territory });
 
-      socket.once("num_armies", (count: number) => {
-        console.log(count);
-        resolve(count);
+      socket.once("num_armies", (data: TerrInfo) => {
+        resolve(data);
       });
     });
   };
@@ -48,7 +65,7 @@ const Map = ({ socket }: { socket: Socket }) => {
   useEffect(() => {
     const updatePositionsAndCounts = async () => {
       const newPositions: Record<string, { x: number; y: number }> = {};
-      const newCounts: Record<string, number> = {};
+      const newInfo: Record<string, TerrInfo> = {};
 
       for (const { id } of paths) {
         const pathEl = pathRefs.current[id];
@@ -58,21 +75,21 @@ const Map = ({ socket }: { socket: Socket }) => {
           const centerY = bbox.y + bbox.height / 2;
           newPositions[id] = { x: centerX, y: centerY };
 
-          const count = await getArmies(id.replace(".txt", ""));
-          newCounts[id] = count;
+          const ti = await getArmies(id.replace(".txt", ""));
+          newInfo[id] = ti;
+          console.log(newInfo[id]);
         }
       }
 
       setArmyPositions(newPositions);
-      setArmyCounts(newCounts);
+      setArmyCounts(newInfo);
     };
 
     updatePositionsAndCounts();
-  }, [paths]);
+  }, [paths, armyUpdateTrigger]);
 
   // when a layer is clicked, print out its name to the console (temporary function)
   const handleGroupClick = (event: React.MouseEvent) => {
-    console.log(event.currentTarget.id.replace(".txt", ""));
     socket.emit("button_click", {
       territory: event.currentTarget.id.replace(".txt", ""),
     });
@@ -118,8 +135,21 @@ const Map = ({ socket }: { socket: Socket }) => {
               }}
               d={d}
               style={{
-                fillOpacity: 0,
+                fillOpacity: armyCounts[id]
+                  ? armyCounts[id].is_ter_from || armyCounts[id].is_ter_to
+                    ? 0.25
+                    : 0
+                  : 0,
+                fill: armyCounts[id] ? armyCounts[id].color : "transparent",
+                strokeOpacity: "0",
                 cursor: "pointer",
+                stroke: armyCounts[id] ? armyCounts[id].color : "transparent",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.strokeOpacity = "1";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.strokeOpacity = "0";
               }}
             />
           </g>
@@ -130,8 +160,8 @@ const Map = ({ socket }: { socket: Socket }) => {
             <circle
               cx={pos.x}
               cy={pos.y}
-              r={6}
-              fill="red"
+              r={8}
+              fill={armyCounts[id].color}
               stroke="black"
               strokeWidth={1}
             />
@@ -140,10 +170,10 @@ const Map = ({ socket }: { socket: Socket }) => {
               y={pos.y}
               textAnchor="middle"
               alignmentBaseline="middle"
-              fontSize="10"
+              fontSize="12"
               fill="white"
             >
-              {armyCounts[id] ?? 0}
+              {armyCounts[id].num_armies ?? 0}
             </text>
           </g>
         ))}
