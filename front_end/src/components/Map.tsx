@@ -77,7 +77,6 @@ const Map = ({ socket }: { socket: Socket }) => {
 
           const ti = await getArmies(id.replace(".txt", ""));
           newInfo[id] = ti;
-          console.log(newInfo[id]);
         }
       }
 
@@ -160,7 +159,8 @@ const Map = ({ socket }: { socket: Socket }) => {
             <circle
               cx={pos.x}
               cy={pos.y}
-              r={8}
+              r={12}
+              fillOpacity={0.25}
               fill={armyCounts[id].color}
               stroke="black"
               strokeWidth={1}

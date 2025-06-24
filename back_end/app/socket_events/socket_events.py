@@ -2,9 +2,10 @@ from flask import request
 from flask_socketio import emit, join_room
 from app.services.game import Game
 
-rooms = {}  # room id -> sid
-users = {}  # sid -> {username, room ID, points, color}
-games = {}  # room id -> current game
+rooms: dict[str, list[str]] = {}  # room id -> [sids]
+# sid -> {username, room ID, points, color}
+users: dict[str, str, str, str, str] = {}
+games: dict[str, Game] = {}  # room id -> current game
 
 COLORS = ["#E74C3C",
           "#3498DB",
@@ -20,7 +21,7 @@ def register_socket_events(socketio):
     @socketio.on("connect")
     def handle_connect():
         sid = request.sid
-        print(f"user disconnected: {sid}")
+        print(f"user connected: {sid}")
         users[sid] = {"username": None,
                       "roomID": None, "points": 0, "color": None}
 
@@ -42,9 +43,12 @@ def register_socket_events(socketio):
         # update username and room id of the user accordingly
         users[sid]["roomID"] = roomID
         users[sid]["username"] = username
-        users[sid]["color"] = COLORS[len(rooms[roomID]) - 2]
 
-        print(users)
+        current_colors = [user["color"]
+                          for user in users.values() if user["roomID"] == roomID]
+        users[sid]["color"] = [
+            color for color in COLORS if color not in current_colors][0]
+
         emit("player_data", [
              user for user in users.values() if user["roomID"] == users[sid]["roomID"]], room=users[sid]["roomID"])
 
@@ -55,6 +59,8 @@ def register_socket_events(socketio):
 
         games[roomID] = Game(roomID, list(users.keys()))
 
+        emit("game_started", True, room=roomID)
+
     @socketio.on("button_click")
     def handle_button_click(data):
         sid = request.sid
@@ -64,8 +70,9 @@ def register_socket_events(socketio):
         if sid == cur_player:
             cur_game.handle_move(sid, data["territory"])
 
-        emit("armies_updated", True)
-        print(cur_game.get_ter_to())
+        emit("armies_updated", True, room=users[sid]["roomID"])
+        emit("can_execute_move", cur_game.can_execute_move(),
+             room=users[sid]["roomID"])
 
     @socketio.on("execute_move")
     def handle_execute_move():
@@ -76,7 +83,20 @@ def register_socket_events(socketio):
         if sid == cur_player:
             cur_game.execute_move()
 
-        emit("armies_updated", True)
+        emit("armies_updated", True, room=users[sid]["roomID"])
+        emit("can_execute_move", cur_game.can_execute_move(),
+             room=users[sid]["roomID"])
+
+    @socketio.on("next_move")
+    def handle_next_move():
+        sid = request.sid
+        cur_game = games.get(users[sid]["roomID"])
+
+        print("next move")
+        cur_game.next_move()
+
+        handle_current_phase()
+        handle_current_turn()
 
     @socketio.on("reset_phase")
     def handle_reset_phase():
@@ -87,7 +107,7 @@ def register_socket_events(socketio):
         if sid == cur_player:
             cur_game.reset_phase()
 
-        emit("armies_updated", True)
+        emit("armies_updated", True, room=users[sid]["roomID"])
 
     @socketio.on("get_current_phase")
     def handle_current_phase():
@@ -101,10 +121,10 @@ def register_socket_events(socketio):
     def handle_current_turn():
         sid = request.sid
         cur_game = games.get(users[sid]["roomID"])
-        current_turn_sid = cur_game.get_current_player()
+        cur_player = cur_game.get_current_player()
 
-        emit("current_turn", users[current_turn_sid]["username"],
-             room=users[sid]["roomID"])
+        emit("current_turn", users[cur_player]
+             ["username"], room=users[sid]["roomID"])
 
     @socketio.on("get_armies")
     def handle_get_armies(data):
@@ -113,45 +133,41 @@ def register_socket_events(socketio):
 
         territory = data["territory"]
 
-        get_armies = cur_game.get_num_armies_on_territory(territory)
+        get_armies = cur_game.get_string_armies_on_territory(territory)
         get_color = users.get(
-            cur_game.__get_player_on_territory__(territory))["color"]
+            cur_game.get_player_on_territory(territory))["color"]
 
         is_ter_from = territory in cur_game.get_ter_from()
         is_ter_to = territory in cur_game.get_ter_to()
 
         emit("num_armies", {"num_armies": get_armies, "color": get_color,
-             "is_ter_from": is_ter_from, "is_ter_to": is_ter_to})
+             "is_ter_from": is_ter_from, "is_ter_to": is_ter_to}, room=users[sid]["roomID"])
 
     @socketio.on("get_terrs")
-    def handle_get_terrs(data):
+    def handle_get_terrs():
         sid = request.sid
         cur_game = games.get(users[sid]["roomID"])
 
-        emit("ter_from", cur_game.get_ter_from())
-        emit("ter_to", cur_game.get_ter_to())
-
-    @socketio.on("next_move")
-    def handle_next_move():
-        sid = request.sid
-        cur_game = games.get(users[sid]["roomID"])
-        cur_game.next_move()
+        emit("ter_from", cur_game.get_ter_from(), room=users[sid]["roomID"])
+        emit("ter_to", cur_game.get_ter_to(), room=users[sid]["roomID"])
 
     @socketio.on("disconnect")
     def handle_disconnect(reason):
         sid = request.sid
         print(f"user disconnected: {sid}")
+        roomID = users.get(sid)["roomID"]
+        users.pop(sid, None)
 
         # update rooms so that the room doesn't contain the name
-        roomID = users.get(sid)["roomID"]
         if roomID in rooms:
             rooms[roomID] = [i for i in rooms[roomID] if i != sid]
-            emit("room-users", [users[key]
-                 for key in rooms[roomID] if key in users], room=roomID)
             if not rooms[roomID]:
                 del rooms[roomID]
 
+        if roomID in games:
+            if not games[roomID]:
+                del games[roomID]
+
         # take the sid out of user rooms
         emit("player_data", [
-             user for user in users.values() if user["roomID"] == users[sid]["roomID"]], room=users[sid]["roomID"])
-        users.pop(sid, None)
+             user for user in users.values() if user["roomID"] == roomID], room=roomID)

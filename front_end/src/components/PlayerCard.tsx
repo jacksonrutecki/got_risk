@@ -5,10 +5,16 @@ import "../styles/PlayerCard.scss";
 
 const PlayerCard = ({ socket }: { socket: Socket }) => {
   const [users, setUsers] = useState<User[]>([]);
+  const [currentPlayer, setCurrentPlayer] = useState(String);
 
   useEffect(() => {
+    socket.emit("get_current_turn");
+
+    socket.on("current_turn", (data) => {
+      setCurrentPlayer(data);
+    });
+
     socket.on("player_data", (data) => {
-      console.log(data);
       setUsers(data);
     });
 
@@ -21,7 +27,10 @@ const PlayerCard = ({ socket }: { socket: Socket }) => {
     <div>
       {users.map((user) => (
         <div
-          style={{ background: user.color }}
+          style={{
+            background: user.color,
+            opacity: currentPlayer == user.username ? 1 : 0.25,
+          }}
           key={user.username}
           className="player-card"
         >

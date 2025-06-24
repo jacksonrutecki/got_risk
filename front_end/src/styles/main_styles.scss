@@ -15,3 +15,8 @@
 .base-button:hover {
     background-color: #333
 }
+
+.base-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

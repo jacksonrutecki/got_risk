@@ -12,17 +12,26 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
   const [curPhase, setCurPhase] = useState("");
   const [curTurn, setCurTurn] = useState("");
 
+  const [canExecuteMove, setCanExecuteMove] = useState(false);
+
   const username = location.state?.username || null;
 
   const handleExecuteMove = () => {
     socket.emit("execute_move");
   };
 
+  const handleNextMove = () => {
+    socket.emit("next_move");
+  };
+
   useEffect(() => {
     socket.emit("join-room", { roomID, username });
     socket.emit("start-game");
-    socket.emit("get_current_phase");
+  }, []);
+
+  useEffect(() => {
     socket.emit("get_current_turn");
+    socket.emit("get_current_phase");
 
     const handlePhase = (data: string) => setCurPhase(data);
     socket.on("current_phase", handlePhase);
@@ -30,11 +39,15 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
     const handleTurn = (data: string) => setCurTurn(data);
     socket.on("current_turn", handleTurn);
 
+    const handleCanExecuteMove = (data: boolean) => setCanExecuteMove(data);
+    socket.on("can_execute_move", handleCanExecuteMove);
+
     return () => {
       socket.off("current_phase", handlePhase);
       socket.off("current_turn", handleTurn);
+      socket.off("can_execute_move", handleCanExecuteMove);
     };
-  }, []);
+  }, [socket]);
 
   return (
     <div style={{ display: "flex", width: "100%" }}>
@@ -96,9 +109,26 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
           alignItems: "center",
         }}
       >
-        <button className="base-button" onClick={handleExecuteMove}>
-          Execute Move
-        </button>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <button
+            disabled={!canExecuteMove}
+            className="base-button"
+            onClick={handleExecuteMove}
+          >
+            Execute Move
+          </button>
+          <button className="base-button" onClick={handleNextMove}>
+            Next Move
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -5,21 +5,15 @@
 # 2: maneuver
 # 3: draw
 
-import json
 import math
 import random
 
-PHASES = {
-    -2: "Move Armies",
-    -1: "Board Setup",
-    0: "Reinforce",
-    1: "Invade",
-    2: "Maneuver",
-    3: "Draw"
-}
+from app.services.game_data import TERRITORIES, PHASES
+from app.services.phases import *
+from typing import TYPE_CHECKING
 
-with open("data/territories.json", "r") as f:
-    TERRITORIES = json.load(f)
+if TYPE_CHECKING:
+    from app.services.phases.phase import Phase
 
 
 class Game:
@@ -28,27 +22,25 @@ class Game:
         self.players = players
         self.current_player_index = 0
         self.current_phase = -1
-        self.state = {}  # territory: {player, num_armies}
-        self.player_cards = {}  # player: [territory cards]
+        self.prev_phase = None
+        # territory: {player, num_armies}
+        self.state: dict[str, dict[str, int]] = {}
+        # player: [territory cards]
+        self.player_cards: dict[str, list[str]] = {}
         self.territory_card_stack = []
         self.current_num_armies = 0
         self.game_over = False
 
-        self.handles = {
-            -2: self.handle_move_armies,
-            0: self.handle_reinforce,
-            1: self.handle_invade,
-            2: self.handle_maneuver,
-            3: lambda x, y: None
+        self.phases: dict[int, Phase] = {
+            -2: MoveArmies(self),
+            0: Reinforce(self),
+            1: Invade(self),
+            2: Maneuver(self),
+            3: Draw(self)
         }
 
-        self.executes = {
-            -2: self.execute_move_armies,
-            0: self.execute_reinforce,
-            1: self.execute_invade,
-            2: self.execute_maneuver,
-            3: self.execute_draw
-        }
+        for player in self.players:
+            self.player_cards[player] = []
 
         self.ter_from = []
         self.ter_to = []
@@ -69,6 +61,15 @@ class Game:
             print(territory)
         return self.state.get(territory).get("num_armies")
 
+    def get_string_armies_on_territory(self, territory):
+        armies = str(self.get_num_armies_on_territory(territory))
+
+        if self.current_phase == 0:
+            if territory in self.ter_to:
+                armies += f"+{self.ter_to.count(territory)}"
+
+        return armies
+
     def get_player_cards(self, player):
         return self.player_cards.get(player)
 
@@ -83,6 +84,54 @@ class Game:
 
     def get_ter_to(self):
         return self.ter_to
+
+    def pop_ter_to(self):
+        self.ter_to.pop(0)
+
+    def append_ter_to(self, territory):
+        self.ter_to.append(territory)
+
+    def append_ter_from(self, territory):
+        self.ter_from.append(territory)
+
+    def add_army_to_ter(self, territory):
+        self.state[territory]["num_armies"] += 1
+        self.current_num_armies -= 1
+
+    def remove_army_from_ter(self, territory):
+        self.state[territory]["num_armies"] -= 1
+
+    # multiple referencing num_armies, used in moving
+    def add_armies_to_ter(self, territory):
+        self.state[territory]["num_armies"] += self.num_armies
+
+    def remove_armies_from_ter(self, territory):
+        self.state[territory]["num_armies"] -= self.num_armies
+
+    def set_player_on_territory(self, player, territory):
+        self.state.get(territory)["player"] = player
+
+    def set_phase_to_move(self):
+        self.prev_phase = self.current_phase
+        self.current_phase = -2
+
+    def return_phase_from_move(self):
+        self.current_phase = self.prev_phase
+
+    def reset_ter_to(self):
+        self.ter_to = []
+
+    def reset_ter_from(self):
+        self.ter_from = []
+
+    def pop_ter_stack(self):
+        return self.territory_card_stack.pop(0)
+
+    def end_game(self):
+        self.game_over = True
+
+    def add_ter_card(self, player, territory):
+        self.player_cards[player].append(territory)
 
     def setup_board(self, desired_territories=None):
         cur_index = 0
@@ -118,154 +167,16 @@ class Game:
     # handles a move when a player clicks on a territory
     def handle_move(self, player, data):
         if player == self.players[self.current_player_index]:
-            self.handles.get(self.current_phase)(player, data)
+            return self.phases.get(self.current_phase).handle_move(player, data)
 
     def execute_move(self, args=None):
-        self.executes.get(self.current_phase)(args)
+        return self.phases.get(self.current_phase).execute_move(args)
 
-    def handle_move_armies(self, player, num_armies):
+    def can_execute_move(self):
+        return self.phases.get(self.current_phase).can_execute_move()
+
+    def set_num_armies(self, num_armies):
         self.num_armies = num_armies
-
-    def execute_move_armies(self, args=None):
-        for ter in self.ter_from:
-            self.state.get(ter)["num_armies"] -= self.num_armies
-
-        for ter in self.ter_to:
-            self.state.get(ter)["num_armies"] += self.num_armies
-
-        self.current_phase = 1
-        self.ter_from = []
-        self.ter_to = []
-
-    def handle_reinforce(self, player, territory):
-        # ensure player has armies
-        if self.current_num_armies > 0:
-            # ensure player owns territory
-            if self.__get_player_on_territory__(territory) == player:
-                # if the player has selected more territories than they have armies, remove
-                # the first selected and replace it with most recently selected
-                if self.current_num_armies == len(self.ter_to):
-                    self.ter_to.pop(0)
-                self.ter_to.append(territory)
-            else:
-                print(f"{player} does not have control of {territory}!")
-        else:
-            print(f"{player} is out of armies!")
-
-    def execute_reinforce(self, args=None):
-        for ter in self.ter_to:
-            self.state[ter]["num_armies"] += 1
-            self.current_num_armies -= 1
-
-        self.ter_to = []
-
-    def handle_invade(self, player, territory):
-        ter_player = self.state.get(territory)["player"]
-
-        # case 1: no territories are selected:
-        if len(self.ter_from) == 0 and len(self.ter_to) == 0:
-            if ter_player == player:
-                self.ter_from.append(territory)
-            else:
-                self.ter_to.append(territory)
-
-        # case 2: both territories are selected:
-        elif len(self.ter_from) == 1 and len(self.ter_to) == 1:
-            # if the player owns the territory
-            if ter_player == player:
-                # if the selected territory is not neighbors with the old attacked territory
-                if self.ter_to[0] not in TERRITORIES.get(territory)["neighbors"]:
-                    # wipe it
-                    self.ter_to = []
-                self.ter_from.append(territory)
-            # if the player does not own the territory
-            else:
-                # if the selected territory is not neighbors with the old attacked from territory
-                if self.ter_from[0] not in TERRITORIES.get(territory)["neighbors"]:
-                    # wipe it
-                    self.ter_from = []
-                self.ter_to.append(territory)
-
-        # case 3: one territory from ter_from is selected:
-        elif len(self.ter_from) == 1:
-            # if the player does not own the territory
-            if ter_player != player:
-                if self.ter_from[0] not in TERRITORIES.get(territory)["neighbors"]:
-                    self.ter_from = []
-            self.ter_to.append(territory)
-
-        # case 4: one territory from ter_to is selected:
-        elif len(self.ter_to) == 1:
-            # if the player owns the territory
-            if ter_player == player:
-                if self.ter_to[0] not in TERRITORIES.get(territory)["neighbors"]:
-                    self.ter_to = []
-            self.ter_from.append(territory)
-
-    def execute_invade(self, args=None):
-        if len(self.ter_to) > 1 or len(self.ter_from) > 1:
-            ValueError(
-                "ter_to and ter_from should both only have lengths of 1 at this point")
-
-        attack_armies = self.state.get(self.ter_from[0])["num_armies"]
-        defend_armies = self.state.get(self.ter_to[0])["num_armies"]
-
-        if attack_armies > 1:
-            # adding in a potential to not have rolls be randomized, for testing
-            if args == None:
-                num_attack_die = min(attack_armies, 3)
-                num_defend_die = min(defend_armies, 2)
-
-                attack_rolls = [random.randint(1, 6)
-                                for _ in range(num_attack_die)]
-                defend_rolls = [random.randint(1, 6)
-                                for _ in range(num_defend_die)]
-            else:
-                attack_rolls = args[0]
-                defend_rolls = args[1]
-
-            while len(attack_rolls) != 0 and len(defend_rolls) != 0:
-                max_attack_roll = attack_rolls.pop(
-                    attack_rolls.index(max(attack_rolls)))
-                max_defend_roll = defend_rolls.pop(
-                    defend_rolls.index(max(defend_rolls)))
-
-                if max_attack_roll > max_defend_roll:
-                    self.state.get(self.ter_to[0])["num_armies"] -= 1
-                else:
-                    self.state.get(self.ter_from[0])["num_armies"] -= 1
-
-            if self.state.get(self.ter_to[0])["num_armies"] == 0:
-                self.state.get(self.ter_to[0])[
-                    "player"] = self.players[self.current_player_index]
-                self.current_phase = -2
-
-    def handle_maneuver(self, player, territory):
-        if self.state.get(territory)["player"] == player:
-            if len(self.ter_from) == 0:
-                self.ter_from.append(territory)
-            elif len(self.ter_to) == 0 and territory in TERRITORIES.get(self.ter_from[0])["neighbors"]:
-                self.ter_to.append(territory)
-            else:
-                self.ter_from.append(territory)
-                self.ter_to = []
-
-    def execute_maneuver(self, args=None):
-        self.current_phase = -2
-
-    def execute_draw(self, args=None):
-        if args == None:
-            territory = self.territory_card_stack.pop(0)
-        else:
-            territory = args
-
-        if territory == "END GAME":
-            self.game_over = True
-
-        if self.get_current_player() not in self.player_cards:
-            self.player_cards[self.get_current_player()] = []
-
-        self.player_cards[self.get_current_player()].append(territory)
 
     # next move:
     # progressed the game onto the next phase. if the user's turn is over, reset phases and move to next player.
@@ -282,11 +193,11 @@ class Game:
     # sets up a given phase
     def reset_phase(self):
         if self.current_phase == 0:
-            self.current_num_armies = self.__calc_num_armies__()
+            self.current_num_armies = self.calc_num_armies()
         self.ter_to = []
         self.ter_from = []
 
-    def __calc_num_armies__(self):
+    def calc_num_armies(self):
         cur_player = self.players[self.current_player_index]
         armies = 0
 
@@ -298,5 +209,5 @@ class Game:
 
         return max(3, math.floor(armies / 3))
 
-    def __get_player_on_territory__(self, territory):
+    def get_player_on_territory(self, territory):
         return self.state.get(territory)["player"]

@@ -34,10 +34,14 @@ const LobbyScreen = ({ socket }: { socket: Socket }) => {
 
     socket.emit("join-room", { roomID, username });
 
-    socket.on("room-users", (users) => setUsers(users));
+    socket.on("player_data", (users) => setUsers(users));
+    socket.on("game_started", () =>
+      navigate(`/room/${roomID}/game`, { state: { username } })
+    );
 
     return () => {
-      socket.off("room-users");
+      socket.off("player_data");
+      socket.off("game_started");
     };
   }, [roomID, username]);
 
@@ -54,6 +58,10 @@ const LobbyScreen = ({ socket }: { socket: Socket }) => {
       });
   };
 
+  const handleStartGame = () => {
+    socket.emit("start-game");
+  };
+
   return (
     <>
       <HomeButton />
@@ -66,6 +74,7 @@ const LobbyScreen = ({ socket }: { socket: Socket }) => {
               <div
                 key={index}
                 className={`lobby-box ${user ? "filled" : "empty"}`}
+                style={{ background: user ? user.color : "lightgray" }}
               >
                 {user ? user.username : "Waiting...."}
               </div>
@@ -75,12 +84,7 @@ const LobbyScreen = ({ socket }: { socket: Socket }) => {
         <button onClick={handleCopyLink} className="base-button">
           Copy Lobby Link
         </button>
-        <button
-          onClick={() =>
-            navigate(`/room/${roomID}/game`, { state: { username } })
-          }
-          className="base-button"
-        >
+        <button onClick={handleStartGame} className="base-button">
           Start Game
         </button>
       </div>
