@@ -8,7 +8,7 @@
     "barrowlands": {
         "is_port": "FALSE",
         "is_castle": "TRUE",
-        "neighbors": ["stoney_shore", "wolfswood", "winterfell", "white_harbor", "the neck"],
+        "neighbors": ["stoney_shore", "wolfswood", "winterfell", "white_harbor", "the_neck"],
         "region": "THE NORTH"
     },
     "wolfswood": {

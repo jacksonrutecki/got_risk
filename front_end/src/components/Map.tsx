@@ -54,9 +54,7 @@ const Map = ({ socket }: { socket: Socket }) => {
 
   const getArmies = (territory: string): Promise<TerrInfo> => {
     return new Promise((resolve) => {
-      socket.emit("get_armies", { territory: territory });
-
-      socket.once("num_armies", (data: TerrInfo) => {
+      socket.emit("get_armies", { territory: territory }, (data: TerrInfo) => {
         resolve(data);
       });
     });
@@ -87,7 +85,6 @@ const Map = ({ socket }: { socket: Socket }) => {
     updatePositionsAndCounts();
   }, [paths, armyUpdateTrigger]);
 
-  // when a layer is clicked, print out its name to the console (temporary function)
   const handleGroupClick = (event: React.MouseEvent) => {
     socket.emit("button_click", {
       territory: event.currentTarget.id.replace(".txt", ""),

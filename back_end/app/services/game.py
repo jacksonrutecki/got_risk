@@ -172,8 +172,8 @@ class Game:
     def execute_move(self, args=None):
         return self.phases.get(self.current_phase).execute_move(args)
 
-    def can_execute_move(self):
-        return self.phases.get(self.current_phase).can_execute_move()
+    def can_execute_move(self, player):
+        return self.get_current_player() == player and self.phases.get(self.current_phase).can_execute_move()
 
     def set_num_armies(self, num_armies):
         self.num_armies = num_armies

@@ -58,8 +58,13 @@ def register_socket_events(socketio):
         roomID = users[sid]["roomID"]
 
         games[roomID] = Game(roomID, list(users.keys()))
+        cur_game = games[roomID]
 
         emit("game_started", True, room=roomID)
+        emit("can_execute_move", cur_game.can_execute_move(
+            sid), to=sid)
+        emit("can_next_move", cur_game.get_current_player()
+             == sid, to=sid)
 
     @socketio.on("button_click")
     def handle_button_click(data):
@@ -71,8 +76,10 @@ def register_socket_events(socketio):
             cur_game.handle_move(sid, data["territory"])
 
         emit("armies_updated", True, room=users[sid]["roomID"])
-        emit("can_execute_move", cur_game.can_execute_move(),
-             room=users[sid]["roomID"])
+        emit("can_execute_move", cur_game.can_execute_move(
+            sid), to=sid)
+        emit("can_next_move", cur_game.get_current_player()
+             == sid, to=sid)
 
     @socketio.on("execute_move")
     def handle_execute_move():
@@ -83,9 +90,36 @@ def register_socket_events(socketio):
         if sid == cur_player:
             cur_game.execute_move()
 
-        emit("armies_updated", True, room=users[sid]["roomID"])
-        emit("can_execute_move", cur_game.can_execute_move(),
+        emit("current_phase", cur_game.get_current_phase(),
              room=users[sid]["roomID"])
+        emit("armies_updated", True, room=users[sid]["roomID"])
+        emit("can_execute_move", cur_game.can_execute_move(
+            sid), to=sid)
+        emit("can_next_move", cur_game.get_current_player()
+             == sid, to=sid)
+
+    @socketio.on("clear_board")
+    def handle_clear_board():
+        sid = request.sid
+        cur_game = games.get(users[sid]["roomID"])
+        cur_player = cur_game.get_current_player()
+
+        if sid == cur_player:
+            cur_game.reset_phase()
+
+        emit("armies_updated", True, room=users[sid]["roomID"])
+        emit("can_execute_move", cur_game.can_execute_move(
+            sid), to=sid)
+        emit("can_next_move", cur_game.get_current_player()
+             == sid, to=sid)
+
+    @socketio.on("is_current_player")
+    def handle_is_current_player():
+        sid = request.sid()
+        cur_game = games.get(users[sid]["roomID"])
+        cur_player = cur_game.get_current_player()
+
+        return cur_player == sid
 
     @socketio.on("next_move")
     def handle_next_move():
@@ -94,6 +128,12 @@ def register_socket_events(socketio):
 
         print("next move")
         cur_game.next_move()
+
+        emit("armies_updated", True, room=users[sid]["roomID"])
+        emit("can_execute_move", cur_game.can_execute_move(
+            sid), to=sid)
+        emit("can_next_move", cur_game.get_current_player()
+             == sid, to=sid)
 
         handle_current_phase()
         handle_current_turn()
@@ -140,8 +180,8 @@ def register_socket_events(socketio):
         is_ter_from = territory in cur_game.get_ter_from()
         is_ter_to = territory in cur_game.get_ter_to()
 
-        emit("num_armies", {"num_armies": get_armies, "color": get_color,
-             "is_ter_from": is_ter_from, "is_ter_to": is_ter_to}, room=users[sid]["roomID"])
+        return {"num_armies": get_armies, "color": get_color,
+                "is_ter_from": is_ter_from, "is_ter_to": is_ter_to}
 
     @socketio.on("get_terrs")
     def handle_get_terrs():

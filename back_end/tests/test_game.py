@@ -61,9 +61,9 @@ class test_game(unittest.TestCase):
     def test_can_execute_move(self):
         test_game = Game("id", ["jackson"])
 
-        self.assertEqual(test_game.can_execute_move(), False)
+        self.assertEqual(test_game.can_execute_move("jackson"), False)
         test_game.handle_move("jackson", "stoney_shore")
-        self.assertEqual(test_game.can_execute_move(), True)
+        self.assertEqual(test_game.can_execute_move("jackson"), True)
 
 
 class test_reinforce(unittest.TestCase):

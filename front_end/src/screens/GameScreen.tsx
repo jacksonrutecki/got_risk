@@ -13,8 +13,13 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
   const [curTurn, setCurTurn] = useState("");
 
   const [canExecuteMove, setCanExecuteMove] = useState(false);
+  const [canNextMove, setCanNextMove] = useState(false);
 
   const username = location.state?.username || null;
+
+  const handleClearBoard = () => {
+    socket.emit("clear_board");
+  };
 
   const handleExecuteMove = () => {
     socket.emit("execute_move");
@@ -42,10 +47,14 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
     const handleCanExecuteMove = (data: boolean) => setCanExecuteMove(data);
     socket.on("can_execute_move", handleCanExecuteMove);
 
+    const handleCanNextMove = (data: boolean) => setCanNextMove(data);
+    socket.on("can_next_move", handleCanNextMove);
+
     return () => {
       socket.off("current_phase", handlePhase);
       socket.off("current_turn", handleTurn);
       socket.off("can_execute_move", handleCanExecuteMove);
+      socket.off("can_next_move", handleCanNextMove);
     };
   }, [socket]);
 
@@ -95,9 +104,45 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
+          position: "relative",
         }}
       >
         <Map socket={socket} />
+
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: 0.35,
+            }}
+          >
+            <label style={{ marginBottom: "10px" }}>
+              Number of armies to move:
+              <input
+                type="number"
+                style={{ marginLeft: "10px", width: "60px" }}
+              />
+            </label>
+          </div>
+        </div>
       </div>
 
       {/* Third column */}
@@ -121,11 +166,22 @@ const GameScreen = ({ socket }: { socket: Socket }) => {
           <button
             disabled={!canExecuteMove}
             className="base-button"
+            onClick={handleClearBoard}
+          >
+            Clear Board
+          </button>
+          <button
+            disabled={!canExecuteMove}
+            className="base-button"
             onClick={handleExecuteMove}
           >
             Execute Move
           </button>
-          <button className="base-button" onClick={handleNextMove}>
+          <button
+            disabled={!canNextMove}
+            className="base-button"
+            onClick={handleNextMove}
+          >
             Next Move
           </button>
         </div>

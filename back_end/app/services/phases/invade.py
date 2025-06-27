@@ -17,22 +17,24 @@ class Invade(Phase):
             else:
                 self.game.append_ter_to(territory)
 
-        # # case 2: both territories are selected:
-        # elif len(self.game.get_ter_from()) == 1 and len(self.game.get_ter_to()) == 1:
-        #     # if the player owns the territory
-        #     if ter_player == player:
-        #         # if the selected territory is not neighbors with the old attacked territory
-        #         if self.game.get_ter_to()[0] not in TERRITORIES.get(territory)["neighbors"]:
-        #             # wipe it
-        #             self.game.reset_ter_to()
-        #         self.game.append_ter_to(territory)
-        #     # if the player does not own the territory
-        #     else:
-        #         # if the selected territory is not neighbors with the old attacked from territory
-        #         if self.game.get_ter_from()[0] not in TERRITORIES.get(territory)["neighbors"]:
-        #             # wipe it
-        #             self.game.reset_ter_from()
-        #         self.game.append_ter_to(territory)
+        # case 2: both territories are selected:
+        elif len(self.game.get_ter_from()) == 1 and len(self.game.get_ter_to()) == 1:
+            # if the player owns the territory
+            if ter_player == player:
+                # if the selected territory is not neighbors with the old attacked territory
+                if self.game.get_ter_to()[0] not in TERRITORIES.get(territory)["neighbors"]:
+                    # wipe it
+                    self.game.reset_ter_to()
+                self.game.reset_ter_from()
+                self.game.append_ter_from(territory)
+            # if the player does not own the territory
+            else:
+                # if the selected territory is not neighbors with the old attacked from territory
+                if self.game.get_ter_from()[0] not in TERRITORIES.get(territory)["neighbors"]:
+                    # wipe it
+                    self.game.reset_ter_from()
+                self.game.reset_ter_to()
+                self.game.append_ter_to(territory)
 
         # case 3: one territory from ter_from is selected:
         elif len(self.game.get_ter_from()) == 1:
